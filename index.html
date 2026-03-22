@@ -1,25 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>QR Attendance - Simple Version (No Camera)</title>
+  <title>Classroom Attendance - Mobile Friendly</title>
   <style>
     body { font-family: Arial; text-align: center; margin-top: 50px; }
-    input, button { padding: 10px; font-size: 16px; margin: 5px; }
+    select, button { padding: 10px; font-size: 16px; margin: 5px; }
+    p { font-size: 16px; color: green; }
   </style>
 </head>
 <body>
   <h2>Classroom Attendance</h2>
 
-  <!-- Login -->
-  <div id="loginDiv">
-    <input type="text" id="studentId" placeholder="Enter Student ID"><br>
-    <input type="text" id="sessionCode" placeholder="Enter Session Code"><br>
+  <div id="attendanceDiv">
+    <label for="studentId">Select Your Student ID:</label><br>
+    <select id="studentId">
+      <option value="">-- Select ID --</option>
+    </select><br>
     <button onclick="markAttendance()">Mark Attendance</button>
-    <p id="msg" style="color:red;"></p>
+    <p id="msg"></p>
   </div>
 
   <script>
-    // Student list
+    // Step 1: List of students
     const students = {
       "5H3": "N.Hasini",
       "5G9": "M.Akshara",
@@ -43,28 +45,35 @@
       "505": "C.Shivani"
     };
 
-    function markAttendance(){
-      const id = document.getElementById("studentId").value.trim().toUpperCase();
-      const session = document.getElementById("sessionCode").value.trim().toUpperCase();
-      const today = new Date().toISOString().substring(0,10);
+    // Step 2: Populate dropdown
+    const studentSelect = document.getElementById("studentId");
+    for (let id in students) {
+      let option = document.createElement("option");
+      option.value = id;
+      option.text = id + " - " + students[id];
+      studentSelect.add(option);
+    }
 
-      if(!students[id]){
-        document.getElementById("msg").innerText = "Invalid Student ID!";
-        return;
-      }
+    // Step 3: Mark attendance
+    function markAttendance() {
+      const id = studentSelect.value;
+      const today = new Date().toISOString().substring(0,10); // YYYY-MM-DD
 
-      if(!session.startsWith("ATTENDANCE_SESSION_")){
-        document.getElementById("msg").innerText = "Invalid Session Code!";
+      if (!id) {
+        document.getElementById("msg").style.color = "red";
+        document.getElementById("msg").innerText = "Please select your Student ID!";
         return;
       }
 
       const attendanceKey = id + "_" + today;
 
       if(localStorage.getItem(attendanceKey)){
-        document.getElementById("msg").innerText = "⚠ Attendance already marked today!";
+        document.getElementById("msg").style.color = "orange";
+        document.getElementById("msg").innerText = "⚠ Attendance already marked today for " + students[id];
       } else {
-        localStorage.setItem(attendanceKey, session);
-        document.getElementById("msg").innerText = "✅ Attendance Marked for " + students[id];
+        localStorage.setItem(attendanceKey, "Present");
+        document.getElementById("msg").style.color = "green";
+        document.getElementById("msg").innerText = "✅ Attendance marked for " + students[id];
       }
     }
   </script>
