@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Attendance</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; }
+    input, button { padding: 10px; font-size: 16px; margin: 5px; }
+    #qr-reader { width: 300px; margin: auto; }
+  </style>
+</head>
+<body>
+  <h2>Classroom QR Attendance</h2>
+
+  <div id="loginDiv">
+    <input type="text" id="studentId" placeholder="Enter Student ID">
+    <button onclick="login()">Login</button>
+    <p id="loginMsg" style="color:red;"></p>
+  </div>
+
+  <div id="scannerDiv" style="display:none;">
+    <div id="qr-reader"></div>
+    <p id="scanMsg"></p>
+  </div>
+
+  <script>
+    // Paste your Firebase config here
+    const firebaseConfig = {
+      apiKey: "AIzaSyDylqw6RlYNr63Ql-Uv30ucfDbV7qN6u8Q",
+      authDomain: "classroomattendance-8fca8.firebaseapp.com",
+      projectId: "classroomattendance-8fca8",
+      storageBucket: "classroomattendance-8fca8.firebasestorage.app",
+      messagingSenderId: "410636907176",
+      appId: "1:410636907176:web:24459ea8af9dabcc37889d",
+      measurementId: "G-T9SSFY1NGW"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    let currentStudentId = "";
+
+    function login() {
+      const id = document.getElementById("studentId").value.trim();
+      if(!id) return;
+
+      db.collection("students").doc(id).get().then(doc => {
+        if(doc.exists){
+          currentStudentId = id;
+          document.getElementById("loginDiv").style.display = "none";
+          document.getElementById("scannerDiv").style.display = "block";
+          startScanner();
+        } else {
+          document.getElementById("loginMsg").innerText = "Invalid Student ID!";
+        }
+      });
+    }
+
+    function startScanner() {
+      const html5QrCode = new Html5Qrcode("qr-reader");
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          handleQRCode(qrCodeMessage);
+          html5QrCode.stop();
+        },
+        errorMessage => {}
+      );
+    }
+
+    function handleQRCode(qrData){
+      const sessionPrefix = "ATTENDANCE_SESSION_";
+      if(!qrData.startsWith(sessionPrefix)){
+        document.getElementById("scanMsg").innerText = "Invalid QR Code!";
+        return;
+      }
+
+      const today = new Date();
+      const dateStr = today.toISOString().substring(0,10); // YYYY-MM-DD
+      const timeStr = today.toTimeString().substring(0,5); // HH:MM
+
+      const attendanceRef = db.collection("attendance")
+                             .doc(currentStudentId + "_" + dateStr);
+
+      attendanceRef.get().then(doc => {
+        if(doc.exists){
+          document.getElementById("scanMsg").innerText = "⚠ Attendance already marked today!";
+        } else {
+          db.collection("attendance").doc(currentStudentId + "_" + dateStr).set({
+            studentId: currentStudentId,
+            name: "", // optional: fetch from students collection
+            date: dateStr,
+            time: timeStr,
+            session: qrData
+          }).then(()=>{
+            document.getElementById("scanMsg").innerText = "✅ Attendance Marked!";
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>
