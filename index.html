@@ -1,81 +1,165 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Classroom Attendance - Mobile Friendly</title>
+  <title>Smart QR Attendance</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 50px; }
-    select, button { padding: 10px; font-size: 16px; margin: 5px; }
-    p { font-size: 16px; color: green; }
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin-top: 50px;
+      background-color: #f5f5f5;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 8px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #qr-reader {
+      width: 300px;
+      margin: auto;
+    }
+
+    #scanMsg {
+      font-weight: bold;
+      margin-top: 15px;
+    }
   </style>
 </head>
-<body>
-  <h2>Classroom Attendance</h2>
 
-  <div id="attendanceDiv">
-    <label for="studentId">Select Your Student ID:</label><br>
-    <select id="studentId">
-      <option value="">-- Select ID --</option>
-    </select><br>
-    <button onclick="markAttendance()">Mark Attendance</button>
-    <p id="msg"></p>
+<body>
+
+  <h2>📚 Smart Classroom Attendance System</h2>
+
+  <!-- LOGIN -->
+  <div id="loginDiv">
+    <input type="text" id="roll" placeholder="Enter Roll Number">
+    <br>
+    <button onclick="login()">Login & Scan</button>
+    <p id="loginMsg" style="color:red;"></p>
+  </div>
+
+  <!-- SCANNER -->
+  <div id="scannerDiv" style="display:none;">
+    <h3>📷 Scan Faculty QR Code</h3>
+    <div id="qr-reader"></div>
+    <p id="scanMsg"></p>
   </div>
 
   <script>
-    // Step 1: List of students
-    const students = {
-      "5H3": "N.Hasini",
-      "5G9": "M.Akshara",
-      "506": "E.Rajasri",
-      "5E4": "M.Navaneetha",
-      "5J2": "P.Sri sai vyshnavi",
-      "5G8": "M.Srishynei",
-      "5H2": "O.Vandana",
-      "5D3": "K.Harshitha",
-      "510": "K.Indhu",
-      "509": "J.Kaveri",
-      "5K5": "R.Chandana",
-      "5E8": "M.Keerthana",
-      "5J0": "P.Jahnavi",
-      "5F8": "Md.Sofiya",
-      "5F2": "M.Bhrahmani",
-      "5F4": "Meharaj",
-      "5H1": "N.Srivinya",
-      "5H2": "N.Sreeja",
-      "5G2": "M.Sreechandana",
-      "505": "C.Shivani"
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDylqw6RlYNr63Ql-Uv30ucfDbV7qN6u8Q",
+      authDomain: "classroomattendance-8fca8.firebaseapp.com",
+      projectId: "classroomattendance-8fca8",
+      storageBucket: "classroomattendance-8fca8.appspot.com",
+      messagingSenderId: "410636907176",
+      appId: "1:410636907176:web:24459ea8af9dabcc37889d"
     };
 
-    // Step 2: Populate dropdown
-    const studentSelect = document.getElementById("studentId");
-    for (let id in students) {
-      let option = document.createElement("option");
-      option.value = id;
-      option.text = id + " - " + students[id];
-      studentSelect.add(option);
-    }
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-    // Step 3: Mark attendance
-    function markAttendance() {
-      const id = studentSelect.value;
-      const today = new Date().toISOString().substring(0,10); // YYYY-MM-DD
+    let currentStudentId = "";
+    let scanner;
 
-      if (!id) {
-        document.getElementById("msg").style.color = "red";
-        document.getElementById("msg").innerText = "Please select your Student ID!";
+    // LOGIN FUNCTION
+    function login() {
+      const roll = document.getElementById("roll").value.trim();
+
+      if (!roll) {
+        document.getElementById("loginMsg").innerText = "❌ Please enter Roll Number";
         return;
       }
 
-      const attendanceKey = id + "_" + today;
+      currentStudentId = roll;
 
-      if(localStorage.getItem(attendanceKey)){
-        document.getElementById("msg").style.color = "orange";
-        document.getElementById("msg").innerText = "⚠ Attendance already marked today for " + students[id];
-      } else {
-        localStorage.setItem(attendanceKey, "Present");
-        document.getElementById("msg").style.color = "green";
-        document.getElementById("msg").innerText = "✅ Attendance marked for " + students[id];
-      }
+      document.getElementById("loginDiv").style.display = "none";
+      document.getElementById("scannerDiv").style.display = "block";
+
+      startScanner();
     }
+
+    // START SCANNER
+    function startScanner() {
+
+      scanner = new Html5Qrcode("qr-reader");
+
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+
+        (qrData) => {
+          processAttendance(qrData);
+          scanner.stop();
+        },
+
+        (error) => {}
+      );
+    }
+
+    // PROCESS ATTENDANCE
+    function processAttendance(qrData) {
+
+      // Validate QR
+      if (!qrData.startsWith("ATTENDANCE_SESSION_")) {
+        document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
+        return;
+      }
+
+      const today = new Date();
+      const date = today.toISOString().substring(0, 10);
+      const time = today.toTimeString().substring(0, 5);
+
+      const docId = currentStudentId + "_" + date;
+
+      db.collection("attendance").doc(docId).get().then(doc => {
+
+        if (doc.exists) {
+          document.getElementById("scanMsg").innerText =
+            "⚠ Attendance already marked today!";
+        } else {
+
+          db.collection("attendance").doc(docId).set({
+            rollNo: currentStudentId,
+            date: date,
+            time: time,
+            session: qrData
+          });
+
+          document.getElementById("scanMsg").innerText =
+            "✅ Attendance Marked Successfully!";
+        }
+      });
+    }
+
   </script>
+
 </body>
 </html>
