@@ -131,10 +131,11 @@
       console.log("Scanned QR:", qrData);
 
       // 🔥 FIXED VALIDATION
-      if (!qrData.trim().toUpperCase().startsWith("ATTENDANCE_SESSION_")) {
-        document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
-        return;
-      }
+      // Flexible validation (FINAL FIX)
+if (!qrData || qrData.length < 5) {
+  document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
+  return;
+}
 
       const today = new Date();
       const date = today.toISOString().substring(0, 10);
