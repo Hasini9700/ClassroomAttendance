@@ -127,8 +127,11 @@
     // PROCESS ATTENDANCE
     function processAttendance(qrData) {
 
-      // Validate QR
-      if (!qrData.startsWith("ATTENDANCE_SESSION_")) {
+      // 🔥 DEBUG (see actual QR value)
+      console.log("Scanned QR:", qrData);
+
+      // 🔥 FIXED VALIDATION
+      if (!qrData.trim().toUpperCase().startsWith("ATTENDANCE_SESSION_")) {
         document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
         return;
       }
