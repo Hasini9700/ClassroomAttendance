@@ -18,9 +18,7 @@
       background-color: #f5f5f5;
     }
 
-    h2 {
-      color: #333;
-    }
+    h2 { color: #333; }
 
     input, button {
       padding: 10px;
@@ -36,9 +34,7 @@
       cursor: pointer;
     }
 
-    button:hover {
-      background-color: #45a049;
-    }
+    button:hover { background-color: #45a049; }
 
     #qr-reader {
       width: 300px;
@@ -54,116 +50,131 @@
 
 <body>
 
-  <h2>📚 Smart Classroom Attendance System</h2>
+<h2>📚 Smart Classroom Attendance System</h2>
 
-  <!-- LOGIN -->
-  <div id="loginDiv">
-    <input type="text" id="roll" placeholder="Enter Roll Number">
-    <br>
-    <button onclick="login()">Login & Scan</button>
-    <p id="loginMsg" style="color:red;"></p>
-  </div>
+<!-- LOGIN -->
+<div id="loginDiv">
+  <input type="text" id="roll" placeholder="Enter Roll Number">
+  <br>
+  <button onclick="login()">Login & Scan</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
 
-  <!-- SCANNER -->
-  <div id="scannerDiv" style="display:none;">
-    <h3>📷 Scan Faculty QR Code</h3>
-    <div id="qr-reader"></div>
-    <p id="scanMsg"></p>
-  </div>
+<!-- SCANNER -->
+<div id="scannerDiv" style="display:none;">
+  <h3>📷 Scan Faculty QR Code</h3>
+  <div id="qr-reader"></div>
+  <p id="scanMsg"></p>
+</div>
 
-  <script>
+<script>
 
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyDylqw6RlYNr63Ql-Uv30ucfDbV7qN6u8Q",
-      authDomain: "classroomattendance-8fca8.firebaseapp.com",
-      projectId: "classroomattendance-8fca8",
-      storageBucket: "classroomattendance-8fca8.appspot.com",
-      messagingSenderId: "410636907176",
-      appId: "1:410636907176:web:24459ea8af9dabcc37889d"
-    };
+const firebaseConfig = {
+  apiKey: "AIzaSyDylqw6RlYNr63Ql-Uv30ucfDbV7qN6u8Q",
+  authDomain: "classroomattendance-8fca8.firebaseapp.com",
+  projectId: "classroomattendance-8fca8",
+  storageBucket: "classroomattendance-8fca8.appspot.com",
+  messagingSenderId: "410636907176",
+  appId: "1:410636907176:web:24459ea8af9dabcc37889d"
+};
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-    let currentStudentId = "";
-    let scanner;
+let currentStudentId = "";
+let scanner;
 
-    // LOGIN FUNCTION
-    function login() {
-      const roll = document.getElementById("roll").value.trim();
+// LOGIN
+function login() {
+  const roll = document.getElementById("roll").value.trim();
 
-      if (!roll) {
-        document.getElementById("loginMsg").innerText = "❌ Please enter Roll Number";
-        return;
-      }
+  if (!roll) {
+    document.getElementById("loginMsg").innerText = "❌ Please enter Roll Number";
+    return;
+  }
 
-      currentStudentId = roll;
+  currentStudentId = roll;
 
-      document.getElementById("loginDiv").style.display = "none";
-      document.getElementById("scannerDiv").style.display = "block";
+  document.getElementById("loginDiv").style.display = "none";
+  document.getElementById("scannerDiv").style.display = "block";
 
-      startScanner();
-    }
-
-    // START SCANNER
-    function startScanner() {
-
-      scanner = new Html5Qrcode("qr-reader");
-
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-
-        (qrData) => {
-          processAttendance(qrData);
-          scanner.stop();
-        },
-
-        (error) => {}
-      );
-    }
-
-    // PROCESS ATTENDANCE
-    function processAttendance(qrData) {
-
-      // 🔥 DEBUG (see actual QR value)
-      console.log("Scanned QR:", qrData);
-
-      // 🔥 FIXED VALIDATION
-      // Flexible validation (FINAL FIX)
-if (!qrData || qrData.length < 5) {
-  document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
-  return;
+  startScanner();
 }
 
-      const today = new Date();
-      const date = today.toISOString().substring(0, 10);
-      const time = today.toTimeString().substring(0, 5);
+// START SCANNER
+function startScanner() {
+  scanner = new Html5Qrcode("qr-reader");
 
-      const docId = currentStudentId + "_" + date;
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
 
-      db.collection("attendance").doc(docId).get().then(doc => {
+    (qrData) => {
+      processAttendance(qrData);
+      scanner.stop();
+    },
 
-        if (doc.exists) {
-          document.getElementById("scanMsg").innerText =
-            "⚠ Attendance already marked today!";
-        } else {
+    (error) => {}
+  );
+}
 
+// PROCESS ATTENDANCE
+function processAttendance(qrData) {
+
+  console.log("Scanned QR:", qrData);
+
+  // Basic validation
+  if (!qrData || qrData.length < 5) {
+    document.getElementById("scanMsg").innerText = "❌ Invalid QR Code!";
+    return;
+  }
+
+  const today = new Date();
+  const date = today.toISOString().substring(0, 10);
+  const time = today.toTimeString().substring(0, 5);
+
+  const docId = currentStudentId + "_" + date;
+
+  // 🔥 DEVICE ID (Anti-Proxy)
+  const deviceId = navigator.userAgent;
+
+  // Check duplicate attendance
+  db.collection("attendance").doc(docId).get().then(doc => {
+
+    if (doc.exists) {
+      document.getElementById("scanMsg").innerText =
+        "⚠ Attendance already marked today!";
+    } else {
+
+      // 🔥 Check same device usage
+      db.collection("attendance")
+        .where("deviceId", "==", deviceId)
+        .get()
+        .then(snapshot => {
+
+          let warning = "";
+
+          if (!snapshot.empty) {
+            warning = " ⚠ Proxy suspected (same device used)";
+          }
+
+          // Save attendance
           db.collection("attendance").doc(docId).set({
             rollNo: currentStudentId,
             date: date,
             time: time,
-            session: qrData
+            session: qrData,
+            deviceId: deviceId   // 🔥 important
           });
 
           document.getElementById("scanMsg").innerText =
-            "✅ Attendance Marked Successfully!";
-        }
-      });
+            "✅ Attendance Marked Successfully!" + warning;
+        });
     }
+  });
+}
 
-  </script>
+</script>
 
 </body>
 </html>
